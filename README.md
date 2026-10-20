@@ -4,13 +4,13 @@ Decision Model Trainer is a Kubeflow Pipelines (KFP) component for Red Hat OpenS
 
 ## Features
 
+- Kubeflow Pipelines v2 decision model training pipeline for RHOAI, with GPU scheduling controls, disabled caching, and separate adapter and merged-model artifacts.
 - Accepts local datasets or Hugging Face datasets and configurable dataset splits.
 - Supports typed `choice`, `noul`, and `score` questions with structured gold answers.
 - Provides reproducible holdout splitting, skipped-record reporting, evaluation, checkpointing, and decision-head calibration.
 - Supports configurable base models, sequence length, 4-bit loading, LoRA settings, gradient checkpointing, and standard Transformers training arguments.
 - Automatically selects CUDA, Apple MPS, or CPU, with CUDA-oriented settings for RHOAI GPU workloads.
 - Provides `train`, `infer`, and `push` CLI commands for local development, validation, and optional merged 16-bit Hub publishing.
-- Includes a Kubeflow Pipelines v2 definition for RHOAI, with GPU scheduling controls, disabled caching, and separate adapter and merged-model artifacts.
 
 ## Training Pipeline Overview
 
@@ -45,7 +45,9 @@ uv sync --extra cuda
 
 Unsloth's official installation guidance should be followed if its CUDA/PyTorch wheel combination differs from the versions in your environment: <https://unsloth.ai/docs/get-started/install>.
 
-## Configuration
+## Usage
+
+### Configuration
 
 Copy `examples/config.yaml` and update the dataset and output paths. See the [configuration reference](docs/configuration.md) for all available options.
 
@@ -53,7 +55,7 @@ Copy `examples/config.yaml` and update the dataset and output paths. See the [co
 decision-model-trainer train --config examples/config.yaml
 ```
 
-## RHOAI AI Pipelines
+### RHOAI Training Pipeline
 
 The project also includes a Kubeflow Pipelines v2 definition for Red Hat OpenShift AI.
 The pipeline runs the same training utility as the CLI inside the published training image;
@@ -104,17 +106,26 @@ The bar may appear as multiple updates in collected logs because log aggregators
 do not always interpret terminal carriage returns; the step and metric messages
 remain available through `logging_steps`.
 
-## Hugging Face and inference
+### Publish to Hugging Face 
 
 Set `HF_TOKEN` or pass `--token`:
 
 ```bash
 decision-model-trainer push --model outputs/qwen-decision --repo your-user/qwen-decision
 decision-model-trainer push --model outputs/qwen-decision --repo your-user/qwen-decision --merge
-decision-model-trainer infer --model outputs/qwen-decision --state "Refund invoice 4411" --questions examples/questions.json
 ```
 
 The `--merge` option uploads a merged 16-bit model and may require substantially more disk memory than adapter upload.
+
+### Inference
+
+Run live inference against the trained model using:
+
+```bash
+decision-model-trainer infer --model outputs/qwen-decision --state "Refund invoice 4411" --questions examples/questions.json
+```
+
+See [`examples/questions.json`](./examples/questions.json) for sample input.
 
 ## Utility Scripts
 
@@ -129,9 +140,7 @@ AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
   --endpoint-url https://object.example.com --region us-east-1
 ```
 
-The source prefix is treated as a folder, so `s3://my-bucket/training-data`
-downloads keys beginning with `training-data/`. Existing local files are
-overwritten. For a public bucket, add `--no-sign-request`.
+The source prefix is treated as a folder, so `s3://my-bucket/training-data` downloads keys beginning with `training-data/`. Existing local files are overwritten. For a public bucket, add `--no-sign-request`.
 
 ## Development
 
