@@ -1,0 +1,77 @@
+# PIPELINE DEFINITION
+# Name: decision-model-training
+# Inputs:
+#    config_json: str
+components:
+  comp-train-component:
+    executorLabel: exec-train-component
+    inputDefinitions:
+      parameters:
+        config_json:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        merged_model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-train-component:
+      container:
+        args:
+        - --config-json
+        - '{{$.inputs.parameters[''config_json'']}}'
+        - '{{$.outputs.artifacts[''model''].path}}'
+        - '{{$.outputs.artifacts[''merged_model''].path}}'
+        command:
+        - python
+        - -m
+        - decision_model_trainer.kfp_runner
+        image: quay.io/rh_ee_taagarwa/decision-model-trainer:improved-mlflow-logging-pt-six
+        resources:
+          accelerator:
+            count: '1'
+            resourceCount: '1'
+            resourceType: nvidia.com/gpu
+            type: nvidia.com/gpu
+pipelineInfo:
+  name: decision-model-training
+root:
+  dag:
+    tasks:
+      train-component:
+        cachingOptions: {}
+        componentRef:
+          name: comp-train-component
+        inputs:
+          parameters:
+            config_json:
+              componentInputParameter: config_json
+        taskInfo:
+          name: train-component
+  inputDefinitions:
+    parameters:
+      config_json:
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.17.0
+---
+platforms:
+  kubernetes:
+    deploymentSpec:
+      executors:
+        exec-train-component:
+          imagePullPolicy: Always
+          nodeSelector:
+            labels:
+              gpu-pool-size: large
+          tolerations:
+          - effect: NoSchedule
+            key: nvidia.com/gpu
+            operator: Equal
+            value: 'true'

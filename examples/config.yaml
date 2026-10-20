@@ -1,0 +1,36 @@
+model:
+  name: unsloth/Qwen3.5-4B
+  max_seq_length: 2048
+  load_in_4bit: true
+  lora_r: 16
+  lora_alpha: 16
+  lora_dropout: 0.0
+  gradient_checkpointing: unsloth
+
+# Use either dataset for a local file or dataset_name for a Hub dataset.
+# dataset: data/train.jsonl
+dataset_name: LocalLLaMA/typed-decisions
+dataset_config: invoice_processing
+dataset_split: train
+# Optional: evaluate a named split from the same dataset source.
+# test_split: test
+output: outputs/qwen-decision
+merged_output: outputs/qwen-decision-merged
+device: auto
+seed: 3407
+holdout_fraction: 0.2
+
+training:
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 4
+  warmup_steps: 10
+  num_train_epochs: 2
+  max_steps: 60
+  learning_rate: 0.0002
+  lr_scheduler_type: cosine
+  weight_decay: 0.01
+  eval_strategy: epoch
+  logging_steps: 10
+  disable_tqdm: false
+  # Optional: Report results to MLflow
+  # report_to: mlflow

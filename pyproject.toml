@@ -1,0 +1,44 @@
+[project]
+name = "decision-model-trainer"
+version = "0.1.0"
+description = "CLI for training, publishing, and running Unsloth decision models"
+readme = "README.md"
+authors = [
+    { name = "Taylor Agarwal", email = "taagarwa@redhat.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+    "typer>=0.27.3",
+    "boto3>=1.35",
+    "unsloth",
+    "unsloth-zoo",
+    "datasets>=3.0",
+    "torch>=2.8",
+    "transformers>=5.0",
+    "trl>=0.22",
+    "python-dotenv>=1.2.4",
+    "mlflow>=3.17.1",
+]
+
+[project.optional-dependencies]
+cuda = [
+    "triton",
+]
+pipeline = [
+    "kfp[kubernetes]>=2.17,<3",
+]
+
+[project.scripts]
+decision-model-trainer = "decision_model_trainer:main"
+decision-model-trainer-pipeline = "decision_model_trainer.pipeline:main"
+
+[build-system]
+requires = ["uv_build>=0.11.1,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]

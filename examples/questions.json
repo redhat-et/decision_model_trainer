@@ -1,0 +1,20 @@
+{
+  "team": {
+    "type": "choice",
+    "instructions": "Which team should handle this?",
+    "criteria": {
+      "billing": "invoices, payments, refunds",
+      "technical": "bugs, outages, errors",
+      "sales": "pricing, new plans"
+    }
+  },
+  "refund": {
+    "type": "noul",
+    "instructions": "Does the customer ask for a refund?"
+  },
+  "urgency": {
+    "type": "score",
+    "instructions": "How urgent is this?",
+    "criteria": ["not urgent", "soon", "today"]
+  }
+}
