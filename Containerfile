@@ -4,7 +4,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_CACHE_DIR=/root/.cache/uv \
+    UV_NO_CACHE=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     HOME=/tmp
 
@@ -19,8 +19,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.1 /uv /uvx /usr/local/bin/
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --extra cuda --extra pipeline --no-dev \
+RUN uv sync --frozen --no-cache --no-install-project --extra cuda --extra pipeline --no-dev \
     && mkdir -p /workspace /opt/venv \
     && chgrp -R 0 /app /opt/venv /workspace \
     && chmod -R g=u /app /opt/venv /workspace
@@ -28,7 +27,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Install project after (changes often, installs fast)
 COPY README.md ./
 COPY src ./src
-RUN uv sync --frozen --extra cuda --extra pipeline --no-dev
+RUN uv sync --frozen --no-cache --extra cuda --extra pipeline --no-dev
 
 ENV PATH="/opt/venv/bin:${PATH}" \
     HF_HOME=/workspace/cache/huggingface \
