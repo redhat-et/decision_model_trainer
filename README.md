@@ -164,18 +164,18 @@ git tag -a "v${VERSION}" -m "Release v${VERSION}"
 git push origin main --follow-tags
 ```
 
-Pushing a `vX.Y.Z` tag runs the GitHub Actions release workflow. It publishes
-the image to the repository's public GHCR package with these tags:
+Then build and push the Container image:
 
-```text
-ghcr.io/OWNER/REPOSITORY:VERSION
-ghcr.io/OWNER/REPOSITORY:latest
+```bash
+VERSION=$(uv version --short)
+IMAGE="quay.io/rh_ee_taagarwa/decision-model-trainer:v${VERSION}"
+
+podman build --no-cache --platform linux/amd64 \
+  -f Containerfile \
+  -t "$IMAGE" .
+
+podman push "$IMAGE"
 ```
-
-The version tag is immutable by convention and should be used for production
-deployments. The `latest` tag is a convenience alias.
-The first publication may require setting the package visibility to Public in
-the repository's GitHub Packages settings.
 
 ## Known Issues
 
