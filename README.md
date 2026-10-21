@@ -158,7 +158,14 @@ Bump and tag the version from the project root, then push the release commit:
 uv version --bump patch
 uv lock
 VERSION=$(uv version --short)
-git add pyproject.toml uv.lock
+IMAGE="quay.io/rh_ee_taagarwa/decision-model-trainer:v${VERSION}"
+
+# Regenerate the pipeline with the versioned image reference
+DECISION_MODEL_TRAINER_IMAGE="$IMAGE" \
+  uv run python -m decision_model_trainer.pipeline \
+  --output decision-model-training.yaml
+
+git add pyproject.toml uv.lock decision-model-training.yaml
 git commit -m "Release v${VERSION}"
 git tag -a "v${VERSION}" -m "Release v${VERSION}"
 git push origin main --follow-tags
