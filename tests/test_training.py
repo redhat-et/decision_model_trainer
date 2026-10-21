@@ -79,7 +79,7 @@ def test_load_dataset_can_override_configured_split(monkeypatch):
     assert calls == [{"path": "org/data", "split": "test"}]
 
 
-def test_report_accuracy_reports_each_dataset_and_mlflow_metric():
+def test_report_accuracy_reports_each_dataset():
     calls = []
 
     class FastDecisionModel:
@@ -87,11 +87,6 @@ def test_report_accuracy_reports_each_dataset_and_mlflow_metric():
         def evaluate(model, tokenizer, items):
             calls.append((model, tokenizer, items))
             return {"accuracy": len(items) / 10}
-
-    class MLflow:
-        @staticmethod
-        def log_metric(name, value, synchronous):
-            calls.append((name, value))
 
     messages = []
     result = training.report_accuracy(
@@ -101,11 +96,14 @@ def test_report_accuracy_reports_each_dataset_and_mlflow_metric():
         {"train": [1, 2], "eval": [3], "test": [4, 5, 6]},
         "after_lora",
         messages.append,
-        MLflow,
     )
 
     assert result == {"train": 0.2, "eval": 0.1, "test": 0.3}
-    assert ("after_lora_test_accuracy", 0.3) in calls
+    assert calls == [
+        ("model", "tokenizer", [1, 2]),
+        ("model", "tokenizer", [3]),
+        ("model", "tokenizer", [4, 5, 6]),
+    ]
     assert messages == [
         "after_lora train accuracy: 0.2000",
         "after_lora eval accuracy: 0.1000",

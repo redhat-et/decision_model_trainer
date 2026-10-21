@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-import mlflow
 
 Progress = Callable[[str], None]
 
@@ -74,43 +70,6 @@ def load_dataset(config: dict[str, Any], split: str | None = None):
     return load_dataset(**load_kwargs)
 
 
-def _mlflow_configured(config: dict[str, Any]) -> bool:
-    report_to = config.get("training", {}).get("report_to", "none")
-    if isinstance(report_to, str):
-        return report_to == "mlflow"
-    return report_to is not None and "mlflow" in report_to
-
-
-def _configure_mlflow_from_environment() -> None:
-    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
-    if tracking_uri:
-        mlflow.set_tracking_uri(tracking_uri)
-    experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME")
-    if experiment_name:
-        mlflow.set_experiment(experiment_name)
-
-
-@contextmanager
-def _mlflow_run(config: dict[str, Any]):
-    if not _mlflow_configured(config):
-        yield None
-        return
-
-    mlflow.autolog()
-    active_run = mlflow.active_run()
-    if active_run is None:
-        _configure_mlflow_from_environment()
-        run_id = os.environ.get("MLFLOW_RUN_ID")
-        run = mlflow.start_run(run_id=run_id) if run_id else mlflow.start_run()
-    else:
-        run = None
-    try:
-        yield mlflow
-    finally:
-        if run is not None:
-            mlflow.end_run()
-
-
 def report_accuracy(
     FastDecisionModel,
     model,
@@ -118,7 +77,6 @@ def report_accuracy(
     datasets: dict[str, list],
     stage: str,
     progress: Progress | None = None,
-    mlflow_module = None,
 ) -> dict[str, float]:
     accuracies: dict[str, float] = {}
     for split, items in datasets.items():
@@ -127,10 +85,6 @@ def report_accuracy(
         accuracies[split] = accuracy
         if progress:
             progress(f"{stage} {split} accuracy: {accuracy:.4f}")
-        if mlflow_module is not None:
-            mlflow_module.log_metric(
-                f"{stage}_{split}_accuracy", accuracy, synchronous=True
-            )
     return accuracies
 
 
@@ -226,61 +180,39 @@ def train_from_config(
     output_path.mkdir(parents=True, exist_ok=True)
     from unsloth import DecisionTrainer
 
-    with _mlflow_run(config) as mlflow_module:
-        if mlflow_module is not None and progress:
-            progress("MLflow metrics enabled")
+    report_accuracy(
+        FastDecisionModel, model, tokenizer, datasets, "before_lora", progress
+    )
 
-        report_accuracy(
-            FastDecisionModel,
-            model,
-            tokenizer,
-            datasets,
-            "before_lora",
-            progress,
-            mlflow_module,
-        )
+    model = FastDecisionModel.get_peft_model(
+        model,
+        r=model_config.get("lora_r", 16),
+        lora_alpha=model_config.get("lora_alpha", 16),
+        lora_dropout=model_config.get("lora_dropout", 0),
+        use_gradient_checkpointing=model_config.get(
+            "gradient_checkpointing", "unsloth"
+        ),
+        random_state=config.get("seed", 3407),
+    )
 
-        model = FastDecisionModel.get_peft_model(
-            model,
-            r=model_config.get("lora_r", 16),
-            lora_alpha=model_config.get("lora_alpha", 16),
-            lora_dropout=model_config.get("lora_dropout", 0),
-            use_gradient_checkpointing=model_config.get(
-                "gradient_checkpointing", "unsloth"
-            ),
-            random_state=config.get("seed", 3407),
-        )
-
-        trainer = DecisionTrainer(
-            model=model,
-            processing_class=tokenizer,
-            train_dataset=train_items,
-            eval_dataset=eval_items,
-            args=build_training_args(config, output_path),
-        )
-        trainer.train(resume_from_checkpoint=config.get("resume_from_checkpoint"))
-        report_accuracy(
-            FastDecisionModel,
-            model,
-            tokenizer,
-            datasets,
-            "after_lora",
-            progress,
-            mlflow_module,
-        )
-        model.save_pretrained(output_path)
-        tokenizer.save_pretrained(output_path)
-        FastDecisionModel.calibrate(model, tokenizer, eval_items)
-        report_accuracy(
-            FastDecisionModel,
-            model,
-            tokenizer,
-            datasets,
-            "after_calibration",
-            progress,
-            mlflow_module,
-        )
-        model.save_pretrained(output_path)
+    trainer = DecisionTrainer(
+        model=model,
+        processing_class=tokenizer,
+        train_dataset=train_items,
+        eval_dataset=eval_items,
+        args=build_training_args(config, output_path),
+    )
+    trainer.train(resume_from_checkpoint=config.get("resume_from_checkpoint"))
+    report_accuracy(
+        FastDecisionModel, model, tokenizer, datasets, "after_lora", progress
+    )
+    model.save_pretrained(output_path)
+    tokenizer.save_pretrained(output_path)
+    FastDecisionModel.calibrate(model, tokenizer, eval_items)
+    report_accuracy(
+        FastDecisionModel, model, tokenizer, datasets, "after_calibration", progress
+    )
+    model.save_pretrained(output_path)
     merged_output = config.get("merged_output")
     if merged_output:
         merged_output_path = Path(merged_output)
