@@ -1,4 +1,5 @@
 openshift/storage/base/secret.yaml
+openshift/decision-model/base/secret.yaml
 outputs
 
 # Byte-compiled / optimized / DLL files

@@ -77,6 +77,63 @@ To create a run, do the following:
 
 The pipeline saves the LORA adapter and a merged 16-bit model as separate typed KFP `Model` artifacts to your pipeline server object storage.
 
+## Deploy the Decision Model
+
+After training your decision model, you can deploy the merged model in OpenShift.
+
+First, create the storage secret:
+
+```sh
+cp openshift/decision-model/base/secret.example.yaml openshift/decision-model/base/secret.yaml
+```
+
+Set `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` for the S3-compatible storage provider, set `MODEL_S3_URI` to your model path, then apply it to the namespace:
+
+```sh
+oc apply -f openshift/decision-model/base/secret.yaml -n <namespace>
+```
+
+Then deploy the model:
+
+```sh
+oc apply -k openshift/decision-model/overlays/preprod -n <namespace>
+```
+
+Once the model is live, test the endpoint:
+
+```sh
+MODEL_ROUTE=$(oc get route decision-model-route -o jsonpath='http://{.spec.host}{"\n"}')
+
+curl -s $MODEL_ROUTE/v1/systemone \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "decision-model",
+    "state": {"ticket": "My card was charged twice for one order."},
+    "questions": {
+      "team": {
+        "type": "choice",
+        "instructions": "Which team should handle this ticket?",
+        "criteria": {
+          "billing": "payments and refunds",
+          "shipping": "deliveries",
+          "security": "account access"
+        }
+      },
+      "urgent": {
+        "type": "noul",
+        "instructions": "Does the customer need a reply within the hour?",
+        "criteria": {"true": "the account is locked or money is moving"}
+      },
+      "tone": {
+        "type": "score",
+        "instructions": "How upset is the customer?",
+        "criteria": ["calm", "annoyed", "furious"]
+      }
+    },
+    "chat_template_kwargs": {"enable_thinking": false}
+  }'
+```
+
 ## CLI
 
 The CLI is installable on macOS and Linux. Training can use CUDA, Apple MPS, or CPU according to the configured or automatically detected device. CUDA remains the recommended backend for larger RHOAI runs; use the appropriate PyTorch and Unsloth installation for the host.

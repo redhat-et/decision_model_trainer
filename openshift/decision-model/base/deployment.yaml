@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: decision-model
+    component: vllm
+  name: decision-model
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: decision-model
+      component: vllm
+  template:
+    metadata:
+      labels:
+        app: decision-model
+        component: vllm
+    spec:
+      serviceAccountName: decision-model-sa
+      nodeSelector:
+        gpu-pool-size: large
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      securityContext:
+        runAsUser: 2000
+        runAsGroup: 0
+        fsGroup: 0
+      initContainers:
+      - name: model-download
+        image: amazon/aws-cli:2.27.41
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - |
+          set -eu
+          aws s3 sync "${MODEL_S3_URI}" /model \
+            --endpoint-url "${AWS_ENDPOINT_URL}" \
+            --delete
+        envFrom:
+        - secretRef:
+            name: decision-model-storage
+        volumeMounts:
+        - mountPath: /model
+          name: model-volume
+      containers:
+      - image: vllm/vllm-openai:latest
+        args:
+        - |
+          vllm serve /model \
+            --served-model-name decision-model \
+            --max-model-len 2048 \
+            --async-scheduling \
+            --dtype auto \
+            --logprobs-mode raw_logprobs \
+            --trust-remote-code \
+            --tensor-parallel-size 1 \
+            --gpu-memory-utilization 0.9 \
+            --enable-prefix-caching \
+            --enable-chunked-prefill \
+            --kv-cache-dtype fp8 \
+            --default-chat-template-kwargs '{"enable_thinking": false}' \
+            --reasoning-parser qwen3 \
+            --tool-call-parser qwen3_coder
+        command:
+        - /bin/sh
+        - -c
+        imagePullPolicy: Always
+        name: decision-model
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            cpu: "2"
+            memory: 12G
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: "1"
+            memory: 8G
+            nvidia.com/gpu: "1"
+        volumeMounts:
+        - mountPath: /.cache
+          name: cache-volume
+        - mountPath: /model
+          name: model-volume
+        - mountPath: /.config
+          name: config-volume
+        - mountPath: /.triton
+          name: triton-volume
+        - mountPath: /.local
+          name: local-volume
+        - mountPath: /dev/shm
+          name: shm
+      volumes:
+      - name: cache-volume
+        emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+      - name: model-volume
+        persistentVolumeClaim:
+          claimName: decision-model-pvc
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+        name: config-volume
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+        name: local-volume
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+        name: triton-volume
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+        name: shm

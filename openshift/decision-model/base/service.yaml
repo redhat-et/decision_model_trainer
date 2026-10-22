@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: decision-model-service
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: decision-model
+    component: vllm
+  sessionAffinity: None
+  type: ClusterIP
