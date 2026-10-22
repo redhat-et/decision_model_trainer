@@ -1,0 +1,103 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: base-model
+    component: vllm
+  name: base-model
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: base-model
+      component: vllm
+  template:
+    metadata:
+      labels:
+        app: base-model
+        component: vllm
+    spec:
+      serviceAccountName: base-model-sa
+      nodeSelector:
+        gpu-pool-size: large
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      securityContext:
+        runAsUser: 2000
+        runAsGroup: 0
+        fsGroup: 0
+      containers:
+      - image: vllm/vllm-openai:latest
+        args:
+        - |
+          vllm serve unsloth/Qwen3.5-4B \
+            --served-model-name base-model \
+            --max-model-len 2048 \
+            --async-scheduling \
+            --dtype auto \
+            --logprobs-mode raw_logprobs \
+            --trust-remote-code \
+            --tensor-parallel-size 1 \
+            --gpu-memory-utilization 0.9 \
+            --enable-prefix-caching \
+            --enable-chunked-prefill \
+            --kv-cache-dtype fp8 \
+            --default-chat-template-kwargs '{"enable_thinking": false}' \
+            --reasoning-parser qwen3 \
+            --tool-call-parser qwen3_coder
+        command:
+        - /bin/sh
+        - -c
+        imagePullPolicy: Always
+        name: base-model
+        ports:
+        - containerPort: 8000
+        resources:
+          limits:
+            cpu: "2"
+            memory: 12G
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: "1"
+            memory: 8G
+            nvidia.com/gpu: "1"
+        volumeMounts:
+        - mountPath: /.cache
+          name: cache-volume
+        - mountPath: /model
+          name: model-volume
+        - mountPath: /.config
+          name: config-volume
+        - mountPath: /.triton
+          name: triton-volume
+        - mountPath: /.local
+          name: local-volume
+        - mountPath: /dev/shm
+          name: shm
+      volumes:
+      - name: cache-volume
+        emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+      - name: model-volume
+        persistentVolumeClaim:
+          claimName: base-model-pvc
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+        name: config-volume
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+        name: local-volume
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+        name: triton-volume
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+        name: shm

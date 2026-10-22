@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: base-model-service
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: base-model
+    component: vllm
+  sessionAffinity: None
+  type: ClusterIP

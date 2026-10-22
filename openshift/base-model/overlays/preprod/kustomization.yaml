@@ -1,0 +1,11 @@
+resources:
+  - ../../base
+
+labels:
+  - pairs:
+      app: decision-model
+      component: vllm
+
+images:
+  - name: vllm/vllm-openai
+    newTag: v0.32.0
