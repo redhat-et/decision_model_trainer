@@ -82,9 +82,13 @@ def report_accuracy(
     for split, items in datasets.items():
         metrics = FastDecisionModel.evaluate(model, tokenizer, items)
         accuracy = float(metrics["accuracy"])
+        ece = float(metrics["ece"])
         accuracies[split] = accuracy
         if progress:
-            progress(f"{stage} {split} accuracy: {accuracy:.4f}")
+            progress(
+                f"{stage} {split} accuracy: {accuracy:.4f}, "
+                f"ece: {ece:.4f}"
+            )
     return accuracies
 
 

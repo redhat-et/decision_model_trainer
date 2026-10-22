@@ -86,7 +86,7 @@ def test_report_accuracy_reports_each_dataset():
         @staticmethod
         def evaluate(model, tokenizer, items):
             calls.append((model, tokenizer, items))
-            return {"accuracy": len(items) / 10}
+            return {"accuracy": len(items) / 10, "ece": len(items) / 100}
 
     messages = []
     result = training.report_accuracy(
@@ -105,9 +105,9 @@ def test_report_accuracy_reports_each_dataset():
         ("model", "tokenizer", [4, 5, 6]),
     ]
     assert messages == [
-        "after_lora train accuracy: 0.2000",
-        "after_lora eval accuracy: 0.1000",
-        "after_lora test accuracy: 0.3000",
+        "after_lora train accuracy: 0.2000, ece: 0.0200",
+        "after_lora eval accuracy: 0.1000, ece: 0.0100",
+        "after_lora test accuracy: 0.3000, ece: 0.0300",
     ]
 
 
