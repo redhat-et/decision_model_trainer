@@ -77,6 +77,8 @@ To create a run, do the following:
 
 The pipeline saves the LORA adapter and a merged 16-bit model as separate typed KFP `Model` artifacts to your pipeline server object storage.
 
+See the [training metrics guide](./docs/metrics.md) for an explanation of the printed accuracy and ECE values and how to interpret the stages and splits.
+
 ## Deploy the Decision Model
 
 After training your decision model, you can deploy the merged model in OpenShift.
