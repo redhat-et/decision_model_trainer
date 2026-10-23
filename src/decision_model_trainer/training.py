@@ -55,16 +55,19 @@ def load_dataset(config: dict[str, Any], split: str | None = None):
     dataset_ref = config.get("dataset") or config.get("dataset_name")
     split = config.get("dataset_split", "train") if split is None else split
 
-    # Fetch from adapters (if present)
-    if dataset_ref in DATASET_ADAPTERS:
-        dataset_adapter = DATASET_ADAPTERS[dataset_ref]
-        return dataset_adapter(split=split).dataset
-
     if config.get("dataset") and config.get("dataset_name"):
         raise ValueError("Set only one of `dataset` or `dataset_name`.")
     dataset_config = config.get("dataset_config")
     if not dataset_ref:
         raise ValueError("Config must include `dataset` or `dataset_name`.")
+
+    # Fetch from adapters (if present)
+    if dataset_ref in DATASET_ADAPTERS:
+        dataset_adapter = DATASET_ADAPTERS[dataset_ref]
+        adapter_kwargs = {"split": split}
+        if dataset_config is not None:
+            adapter_kwargs["name"] = dataset_config
+        return dataset_adapter(**adapter_kwargs).dataset
 
     dataset_path = Path(dataset_ref)
     if dataset_path.exists():

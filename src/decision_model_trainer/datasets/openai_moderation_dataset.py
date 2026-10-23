@@ -86,9 +86,11 @@ class OpenAIModerationDataset(DecisionDatasetAdapter):
 
         return formatted_row
 
-    def load_data(self, *, split: str | None = None):
+    def load_data(self, *, name: str | None = None, split: str | None = None):
         """Load dataset into a pandas DataFrame."""
-        self.raw_dataset = load_dataset(self.name, split=split or "train")
+        load_kwargs = {"split": split or "train"}
+        if name is not None:
+            load_kwargs["name"] = name
+        self.raw_dataset = load_dataset(self.name, **load_kwargs)
         formatted_rows = [self.format_row(row) for row in self.raw_dataset]
         self.dataset = Dataset.from_list(formatted_rows)
-

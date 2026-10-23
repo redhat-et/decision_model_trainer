@@ -72,6 +72,20 @@ def test_openai_moderation_adapter_defaults_to_train(monkeypatch):
     assert calls == [(OpenAIModerationDataset.name, "train")]
 
 
+def test_openai_moderation_adapter_passes_subset(monkeypatch):
+    calls = []
+
+    def fake_load_dataset(path, *, split, **kwargs):
+        calls.append((path, kwargs.get("name"), split))
+        return []
+
+    monkeypatch.setattr(openai_moderation_dataset, "load_dataset", fake_load_dataset)
+
+    OpenAIModerationDataset(name="custom-subset", split="validation")
+
+    assert calls == [(OpenAIModerationDataset.name, "custom-subset", "validation")]
+
+
 def test_load_dataset_dispatches_to_registered_adapter(monkeypatch):
     calls = []
     expected_dataset = object()
