@@ -846,6 +846,7 @@ source = { editable = "." }
 dependencies = [
     { name = "boto3" },
     { name = "datasets" },
+    { name = "kfp", extra = ["kubernetes"] },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "torch" },
@@ -861,9 +862,6 @@ dependencies = [
 cuda = [
     { name = "triton" },
 ]
-pipeline = [
-    { name = "kfp", extra = ["kubernetes"] },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -875,7 +873,7 @@ dev = [
 requires-dist = [
     { name = "boto3", specifier = ">=1.35" },
     { name = "datasets", specifier = ">=3.0" },
-    { name = "kfp", extras = ["kubernetes"], marker = "extra == 'pipeline'", specifier = ">=2.17,<3" },
+    { name = "kfp", extras = ["kubernetes"], specifier = ">=2.17,<3" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "torch", specifier = ">=2.8" },
@@ -886,7 +884,7 @@ requires-dist = [
     { name = "unsloth" },
     { name = "unsloth-zoo" },
 ]
-provides-extras = ["cuda", "pipeline"]
+provides-extras = ["cuda"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -179,19 +179,18 @@ decision-model-trainer infer --model outputs/qwen-decision --state "Refund invoi
 
 See [`examples/questions.json`](./examples/questions.json) for sample input.
 
-## RHOAI Training Pipeline Compilation
+### RHOAI Training Pipeline Compilation
 
-Install the pipeline compiler extra on a machine with Python 3.10 or newer:
+Compile the RHOAI training pipeline YAML file using:
 
 ```bash
-uv sync --extra pipeline
+uv sync
 DECISION_MODEL_TRAINER_IMAGE=quay.io/rh_ee_taagarwa/decision-model-trainer:latest \
-  uv run python -m decision_model_trainer.pipeline \
+  uv run decision-model-trainer-pipeline \
   --output my-decision-model-training.yaml
 ```
 
-Scheduling defaults to `gpu-pool-size=large` and the
-`nvidia.com/gpu=true:NoSchedule` toleration. Override them at compile time:
+Scheduling defaults to `gpu-pool-size=large` and the `nvidia.com/gpu=true:NoSchedule` toleration. Override them at compile time:
 
 ```bash
 uv run decision-model-trainer-pipeline \
