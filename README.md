@@ -29,12 +29,14 @@ The pipeline accepts any dataset with the following schema:
 
 - `state`: the input text
 - `questions`: a JSON object (or object-valued column) containing `choice`, `noul`, or `score` questions
-- `gold`: the expected answers
+- `gold/answers`: the expected answers
 
 Public datasets following this format can be found under the ["structured-decisions" tag on HuggingFace](https://huggingface.co/datasets?other=structured-decisions).
 For an example, check out the [LocalLLaMA/typed-decisions dataset](https://huggingface.co/datasets/LocalLLaMA/typed-decisions).
 
 If your dataset does not follow this format, it will need to be converted to the required format before use.
+You can prepare the dataset ahead of time, or add an adapter to this project in [src/decision_model_trainer/datasets](./src/decision_model_trainer/datasets).
+Check out [src/decision_model_trainer/datasets/openai_moderation_dataset.py](./src/decision_model_trainer/datasets/openai_moderation_dataset.py) for an example of how to convert a dataset to the required format.
 
 ## Run the Training Pipeline in RHOAI
 
