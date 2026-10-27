@@ -263,6 +263,11 @@ podman build --no-cache --platform linux/amd64 \
 podman push "$IMAGE"
 ```
 
-## Known Issues
+## Known Issues & TODOs
 
-- [ ] MLflow logging is bugged in RHOAI. Jobs will not properly log metrics to MLflow when running in RHOAI
+- [ ] Add MLflow support for logging training data
+- [ ] Add support for training on multiple datasets
+- [ ] Convert config into Pydantic object
+- [ ] Save metrics and configuration with the output models
+- [ ] Export format for encoder-only models limited to merged-only
+- [ ] Dataset formatting could potentially be simplified
