@@ -156,20 +156,23 @@ def test_save_model_uses_save_pretrained(tmp_path):
         save_pretrained_gguf=lambda *_args: pytest.fail("GGUF save should not be used"),
     )
     tokenizer = object()
+    config = {}
 
-    training.save_model(model, tokenizer, tmp_path)
+    training.save_model(model, tokenizer, tmp_path, config)
 
     assert calls == [tmp_path]
 
 
-def test_save_model_uses_gguf_when_save_pretrained_is_missing(tmp_path):
+def test_save_model_uses_merged_when_save_pretrained_is_missing(tmp_path):
     calls = []
 
     class Model:
-        def save_pretrained_gguf(self, output_path, tokenizer):
-            calls.append((output_path, tokenizer))
+        def save_pretrained_merged(self, output_path, tokenizer, *, save_method):
+            calls.append((output_path, tokenizer, save_method))
 
     tokenizer = object()
-    training.save_model(Model(), tokenizer, tmp_path)
+    config = {}
 
-    assert calls == [(tmp_path, tokenizer)]
+    training.save_model(Model(), tokenizer, tmp_path, config)
+
+    assert calls == [(tmp_path, tokenizer, "merged_16bit")]

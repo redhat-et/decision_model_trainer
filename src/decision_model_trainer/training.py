@@ -146,11 +146,11 @@ def build_training_args(config: dict[str, Any], output_path: Path):
     return TrainingArguments(**values)
 
 
-def save_model(model, tokenizer, output_path: Path) -> None:
+def save_model(model, tokenizer, output_path: Path, config: dict[str, Any]) -> None:
     if hasattr(model, "save_pretrained"):
         model.save_pretrained(output_path)
     else:
-        model.save_pretrained_gguf(output_path, tokenizer)
+        model.save_pretrained_merged(output_path, tokenizer, save_method=config.get("merged_save_method", "merged_16bit"))
 
 
 def train_from_config(
@@ -223,13 +223,13 @@ def train_from_config(
     report_accuracy(
         FastDecisionModel, model, tokenizer, datasets, "after_lora", progress
     )
-    save_model(model, tokenizer, output_path)
+    save_model(model, tokenizer, output_path, config)
     tokenizer.save_pretrained(output_path)
     FastDecisionModel.calibrate(model, tokenizer, eval_items)
     report_accuracy(
         FastDecisionModel, model, tokenizer, datasets, "after_calibration", progress
     )
-    save_model(model, tokenizer, output_path)
+    save_model(model, tokenizer, output_path, config)
     merged_output = config.get("merged_output")
     if merged_output:
         merged_output_path = Path(merged_output)
