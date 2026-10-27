@@ -9,13 +9,14 @@ Decision Model Trainer is a Kubeflow Pipelines (KFP) component for Red Hat OpenS
 - Supports typed `choice`, `noul`, and `score` questions with structured gold answers.
 - Provides reproducible holdout splitting, skipped-record reporting, evaluation, checkpointing, and decision-head calibration.
 - Supports configurable base models, sequence length, 4-bit loading, LoRA settings, gradient checkpointing, and standard Transformers training arguments.
+- Supports both LLMs and encoder-only models (BERT-style), and most model architectures.
 - Automatically selects CUDA, Apple MPS, or CPU, with CUDA-oriented settings for RHOAI GPU workloads.
 - Provides `train`, `infer`, and `push` CLI commands for local development, validation, and optional merged 16-bit Hub publishing.
 
 ## Training Pipeline Overview
 
 The training pipeline finetunes a LORA on an existing LLM for structured decisions. Finetuning follows the process outlined by [Unsloth's Decision Model training Notebook](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Qwen3_5_(4B)-Decision.ipynb):
-1. Load the existing, pretrained LLM (e.g. `unsloth/Qwen3.5-4B`)
+1. Load the existing, pretrained LLM (e.g. `unsloth/Qwen3.5-4B`) or encoder-only model (e.g. `convaiinnovations/laya`)
 2. Attach a LORA for finetuning
 3. Fetch a training dataset from Huggingface or use a local dataset file and format it for calibrated decisions
 4. Split the training data into a train set and a holdout set for calibration
@@ -31,7 +32,8 @@ The pipeline accepts any dataset with the following schema:
 - `questions`: a JSON object (or object-valued column) containing `choice`, `noul`, or `score` questions
 - `gold/answers`: the expected answers
 
-Public datasets following this format can be found under the ["structured-decisions" tag on HuggingFace](https://huggingface.co/datasets?other=structured-decisions).
+The full dataset requirements can be found in [Unsloth's dataset guide](https://unsloth.ai/docs/basics/train-your-own-decision-model-with-unsloth#dataset-guide).
+Public datasets similar to this format can be found under the ["structured-decisions" tag on HuggingFace](https://huggingface.co/datasets?other=structured-decisions).
 For an example, check out the [LocalLLaMA/typed-decisions dataset](https://huggingface.co/datasets/LocalLLaMA/typed-decisions).
 
 If your dataset does not follow this format, it will need to be converted to the required format before use.

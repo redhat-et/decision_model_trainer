@@ -146,3 +146,30 @@ def test_load_model_passes_model_configuration(monkeypatch):
         "max_seq_length": 512,
         "load_in_4bit": False,
     }
+
+
+def test_save_model_uses_save_pretrained(tmp_path):
+    calls = []
+
+    model = SimpleNamespace(
+        save_pretrained=lambda output_path: calls.append(output_path),
+        save_pretrained_gguf=lambda *_args: pytest.fail("GGUF save should not be used"),
+    )
+    tokenizer = object()
+
+    training.save_model(model, tokenizer, tmp_path)
+
+    assert calls == [tmp_path]
+
+
+def test_save_model_uses_gguf_when_save_pretrained_is_missing(tmp_path):
+    calls = []
+
+    class Model:
+        def save_pretrained_gguf(self, output_path, tokenizer):
+            calls.append((output_path, tokenizer))
+
+    tokenizer = object()
+    training.save_model(Model(), tokenizer, tmp_path)
+
+    assert calls == [(tmp_path, tokenizer)]
