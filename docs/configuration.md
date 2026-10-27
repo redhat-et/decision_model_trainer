@@ -35,7 +35,7 @@ Place model settings under `model`:
 | --- | --- | --- | --- |
 | `name` | string | `unsloth/Qwen3.5-4B` | Base model identifier or local model path. |
 | `max_seq_length` | integer | `2048` | Maximum sequence length. |
-| `load_in_4bit` | boolean | `true` | Load the base model in 4-bit mode. |
+| `load_in_4bit` | boolean | `false` | Load the base model in 4-bit mode. Only applicable for Unsloth-provided models. |
 | `lora_r` | integer | `16` | LoRA rank. |
 | `lora_alpha` | integer | `16` | LoRA scaling factor. |
 | `lora_dropout` | number | `0` | LoRA dropout. |

@@ -109,7 +109,7 @@ def load_model(config: dict[str, Any]):
     model, tokenizer = FastDecisionModel.from_pretrained(
         model_name=model_config.get("name", "unsloth/Qwen3.5-4B"),
         max_seq_length=model_config.get("max_seq_length", 2048),
-        load_in_4bit=model_config.get("load_in_4bit", True),
+        load_in_4bit=model_config.get("load_in_4bit", False),
     )
     return FastDecisionModel, model, tokenizer
 
