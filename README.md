@@ -79,7 +79,9 @@ To create a run, do the following:
 4. Convert your `config.yaml` to JSON using `yq -o=json -I=0 config.yaml`, then copy and paste the resulting JSON into the `config_json` parameter.
 5. Click "Create Run".
 
-The pipeline saves the LORA adapter and a merged 16-bit model as separate typed KFP `Model` artifacts to your pipeline server object storage.
+![](./docs/img/rhoai_pipeline_run.png)
+
+Once completed, the pipeline saves the LORA adapter and a merged 16-bit model as separate typed KFP `Model` artifacts to your pipeline server object storage.
 
 See the [training metrics guide](./docs/metrics.md) for an explanation of the printed accuracy and ECE values and how to interpret the stages and splits.
 
