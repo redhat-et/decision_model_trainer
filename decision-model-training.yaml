@@ -32,7 +32,7 @@ deploymentSpec:
         - python
         - -m
         - decision_model_trainer.kfp_runner
-        image: quay.io/rh_ee_taagarwa/decision-model-trainer:v0.1.4
+        image: quay.io/rh_ee_taagarwa/decision-model-trainer:v0.1.5
         resources:
           accelerator:
             count: '1'
