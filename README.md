@@ -44,10 +44,10 @@ Check out [src/decision_model_trainer/datasets/openai_moderation_dataset.py](./s
 
 Import the pipeline [`decision-model-training.yaml`](./decision-model-training.yaml) to the RHOAI Data Science Pipelines server as described in the [RHOAI documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/working_with_ai_pipelines/managing-ai-pipelines_ai-pipelines#importing-a-pipeline_ai-pipelines):
 
-1. Copy the content from [`decision-model-training.yaml`](./decision-model-training.yaml) to a local file, e.g. `pipeline.yaml`.
-2. Go to the RHOAI dashboard and navigate to "Develop & Train" > "Pipelines" > "Pipeline Definitions".
-3. Click "Import pipeline".
-4. Name the pipeline (e.g. `decision-model-training`) and upload the pipeline file.
+1. Go to the RHOAI dashboard and navigate to "Develop & Train" > "Pipelines" > "Pipeline Definitions".
+2. Click "Import pipeline".
+3. Name the pipeline (e.g. `decision-model-training`) 
+4. Click "Import by url" and paste `https://raw.githubusercontent.com/redhat-et/decision_model_trainer/refs/heads/main/decision-model-training.yaml` into the box.
 5. Click "Import Pipeline" to import the pipeline.
 
 ![](./docs/img/rhoai_pipeline_import.png)
