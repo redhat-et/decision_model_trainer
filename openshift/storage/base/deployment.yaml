@@ -2,21 +2,21 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: harbor-storage
+    app: pipeline-storage
     component: rustfs
-  name: harbor-storage
+  name: pipeline-storage
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: harbor-storage
+      app: pipeline-storage
       component: rustfs
   template:
     metadata:
       labels:
-        app: harbor-storage
+        app: pipeline-storage
         component: rustfs
     spec:
       containers:
@@ -34,12 +34,12 @@ spec:
             - name: RUSTFS_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: harbor-storage
+                  name: pipeline-storage
                   key: STORAGE_ACCESS_KEY
             - name: RUSTFS_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: harbor-storage
+                  name: pipeline-storage
                   key: STORAGE_SECRET_KEY
             - name: RUSTFS_OBS_LOGGER_LEVEL
               value: info
@@ -75,4 +75,4 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: harbor-storage
+            claimName: pipeline-storage

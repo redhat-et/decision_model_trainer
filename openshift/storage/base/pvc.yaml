@@ -2,9 +2,9 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   labels:
-    app: harbor-storage
+    app: pipeline-storage
     component: rustfs
-  name: harbor-storage
+  name: pipeline-storage
 spec:
   accessModes:
     - ReadWriteOnce

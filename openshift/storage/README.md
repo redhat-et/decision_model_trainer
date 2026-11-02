@@ -15,7 +15,7 @@
     oc apply openshift/storage/base/secret.yaml -n <namespace>
     ```
 
-3. Apply the storage service:
+3. Apply the pipeline storage service:
 
     ```sh
     oc apply -k openshift/storage/overlays/preprod -n <namespace>
