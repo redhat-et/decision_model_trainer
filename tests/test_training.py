@@ -139,7 +139,11 @@ def test_report_accuracy_reports_each_dataset():
         messages.append,
     )
 
-    assert result == {"train": 0.2, "eval": 0.1, "test": 0.3}
+    assert result == {
+        "train": {"accuracy": 0.2, "ece": 0.02},
+        "eval": {"accuracy": 0.1, "ece": 0.01},
+        "test": {"accuracy": 0.3, "ece": 0.03},
+    }
     assert calls == [
         ("model", "tokenizer", [1, 2]),
         ("model", "tokenizer", [3]),

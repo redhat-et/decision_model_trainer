@@ -16,6 +16,7 @@ def train_component(
     model: dsl.Output[dsl.Model],
     merged_model: dsl.Output[dsl.Model],
     resolved_config: dsl.Output[dsl.Artifact],
+    metrics: dsl.Output[dsl.Metrics],
 ):
     return dsl.ContainerSpec(
         image=DEFAULT_IMAGE,
@@ -26,6 +27,7 @@ def train_component(
             model.path,
             merged_model.path,
             resolved_config.path,
+            metrics.path,
         ],
     )
 

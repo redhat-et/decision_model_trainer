@@ -1,6 +1,8 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from numbers import Real
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from decision_model_trainer.config import ModelConfig, TrainingArgs, TrainingConfig
@@ -16,6 +18,7 @@ class TrainingResult:
     eval_items: int
     skipped_items: int
     total_items: int
+    metrics: dict[str, float]
 
 
 def load_yaml(path: Path) -> TrainingConfig:
@@ -115,16 +118,22 @@ def report_accuracy(
     datasets: dict[str, list],
     stage: str,
     progress: Progress | None = None,
-) -> dict[str, float]:
-    accuracies: dict[str, float] = {}
+) -> dict[str, dict[str, float]]:
+    reported: dict[str, dict[str, float]] = {}
     for split, items in datasets.items():
         metrics = FastDecisionModel.evaluate(model, tokenizer, items)
-        accuracy = float(metrics["accuracy"])
-        ece = float(metrics["ece"])
-        accuracies[split] = accuracy
+        numeric_metrics = {
+            name: float(value)
+            for name, value in metrics.items()
+            if isinstance(value, Real) and not isinstance(value, bool)
+        }
+        reported[split] = numeric_metrics
         if progress:
-            progress(f"{stage} {split} accuracy: {accuracy:.4f}, ece: {ece:.4f}")
-    return accuracies
+            progress(
+                f"{stage} {split} accuracy: {numeric_metrics['accuracy']:.4f}, "
+                f"ece: {numeric_metrics['ece']:.4f}"
+            )
+    return reported
 
 
 def load_model(config: TrainingConfig | dict[str, Any]):
@@ -175,6 +184,7 @@ def train_from_config(
     config: TrainingConfig | dict[str, Any], progress: Progress | None = None
 ) -> TrainingResult:
     """Run dataset preparation, fine-tuning, calibration, and model saving."""
+    started_at = perf_counter()
     config = resolve_config(config)
     device = resolve_device(config)
     if progress:
@@ -216,7 +226,16 @@ def train_from_config(
     output_path.mkdir(parents=True, exist_ok=True)
     from unsloth import DecisionTrainer
 
-    report_accuracy(
+    metrics: dict[str, float] = {
+        "dataset_train_items": float(len(train_items)),
+        "dataset_eval_items": float(len(eval_items)),
+        "dataset_skipped_items": float(report["skipped"]),
+        "dataset_total_items": float(report["total"]),
+    }
+    if test_items is not None:
+        metrics["dataset_test_items"] = float(len(test_items))
+
+    before_lora_metrics = report_accuracy(
         FastDecisionModel, model, tokenizer, datasets, "before_lora", progress
     )
 
@@ -236,14 +255,22 @@ def train_from_config(
         eval_dataset=eval_items,
         args=build_training_args(config, output_path),
     )
-    trainer.train(resume_from_checkpoint=config.resume_from_checkpoint)
-    report_accuracy(
+    train_result = trainer.train(resume_from_checkpoint=config.resume_from_checkpoint)
+    if train_result is not None and hasattr(train_result, "metrics"):
+        metrics.update(
+            {
+                f"training_{name}": float(value)
+                for name, value in train_result.metrics.items()
+                if isinstance(value, Real) and not isinstance(value, bool)
+            }
+        )
+    after_lora_metrics = report_accuracy(
         FastDecisionModel, model, tokenizer, datasets, "after_lora", progress
     )
     save_model(model, tokenizer, output_path, config)
     tokenizer.save_pretrained(output_path)
     FastDecisionModel.calibrate(model, tokenizer, eval_items)
-    report_accuracy(
+    after_calibration_metrics = report_accuracy(
         FastDecisionModel, model, tokenizer, datasets, "after_calibration", progress
     )
     save_model(model, tokenizer, output_path, config)
@@ -260,10 +287,24 @@ def train_from_config(
             progress(f"Saved merged model to {merged_output_path}")
     if progress:
         progress(f"Saved model to {output_path}")
+    for stage, stage_metrics in (
+        ("before_lora", before_lora_metrics),
+        ("after_lora", after_lora_metrics),
+        ("after_calibration", after_calibration_metrics),
+    ):
+        for split, split_metrics in stage_metrics.items():
+            metrics.update(
+                {
+                    f"{stage}_{split}_{name}": value
+                    for name, value in split_metrics.items()
+                }
+            )
+    metrics["training_total_seconds"] = perf_counter() - started_at
     return TrainingResult(
         output_path=output_path,
         train_items=len(train_items),
         eval_items=len(eval_items),
         skipped_items=report["skipped"],
         total_items=report["total"],
+        metrics=metrics,
     )
