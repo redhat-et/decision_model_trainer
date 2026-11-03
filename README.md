@@ -267,7 +267,7 @@ podman push "$IMAGE"
 
 - [ ] Add MLflow support for logging training data
 - [ ] Add support for training on multiple datasets
-- [ ] Convert config into Pydantic object
-- [ ] Save metrics and configuration with the output models
+- [x] Convert config into Pydantic object
+- [x] Save metrics and configuration with the output models
 - [ ] Export format for encoder-only models limited to merged-only
 - [ ] Dataset formatting could potentially be simplified
