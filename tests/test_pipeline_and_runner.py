@@ -56,3 +56,23 @@ def test_load_json_config_requires_object():
         kfp_runner.load_json_config("not-json")
     with pytest.raises(TypeError, match="must be an object"):
         kfp_runner.load_json_config(json.dumps(["not", "an", "object"]))
+
+
+def test_write_resolved_config_writes_defaults_and_kfp_paths(tmp_path):
+    config = {
+        "model": {},
+        "dataset_name": "org/dataset",
+        "dataset_config": "default",
+        "dataset_split": "train",
+        "output": "/tmp/model",
+        "merged_output": "/tmp/merged-model",
+    }
+    output = tmp_path / "nested" / "resolved-config.json"
+
+    kfp_runner.write_resolved_config(config, str(output))
+
+    resolved = json.loads(output.read_text(encoding="utf-8"))
+    assert resolved["seed"] == 3407
+    assert resolved["training"]["max_steps"] == 60
+    assert resolved["output"] == "/tmp/model"
+    assert resolved["merged_output"] == "/tmp/merged-model"

@@ -1,15 +1,23 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from decision_model_trainer import training
+from decision_model_trainer.config import TrainingConfig
 
 
 def test_load_yaml_reads_mapping(tmp_path):
     config_path = tmp_path / "config.yaml"
-    config_path.write_text("dataset: example\nseed: 42\n", encoding="utf-8")
+    config_path.write_text(
+        "model: {}\ndataset: example\ndataset_config: default\ndataset_split: train\nseed: 42\n",
+        encoding="utf-8",
+    )
 
-    assert training.load_yaml(config_path) == {"dataset": "example", "seed": 42}
+    config = training.load_yaml(config_path)
+
+    assert config.dataset == "example"
+    assert config.seed == 42
 
 
 def test_load_yaml_rejects_missing_file(tmp_path):
@@ -23,6 +31,39 @@ def test_load_yaml_rejects_non_mapping(tmp_path):
 
     with pytest.raises(TypeError, match="must be a mapping"):
         training.load_yaml(config_path)
+
+
+def test_config_resolves_defaults_and_allows_training_arguments():
+    config = TrainingConfig.model_validate(
+        {
+            "model": {},
+            "dataset": "example",
+            "dataset_config": "default",
+            "dataset_split": "train",
+            "training": {"num_train_epochs": 2, "optim": "adamw_torch"},
+        }
+    )
+
+    assert config.output == Path("outputs")
+    assert config.seed == 3407
+    assert config.training.per_device_train_batch_size == 8
+    assert config.training.max_steps == 60
+    assert config.training.num_train_epochs == 2
+    assert config.model_dump_json()
+
+
+def test_config_requires_training_inputs():
+    with pytest.raises(ValueError, match="dataset_config"):
+        TrainingConfig.model_validate({"model": {}, "dataset": "example"})
+
+    with pytest.raises(ValueError, match="exactly one"):
+        TrainingConfig.model_validate(
+            {
+                "model": {},
+                "dataset_config": "default",
+                "dataset_split": "train",
+            }
+        )
 
 
 def test_resolve_device_honors_explicit_value():

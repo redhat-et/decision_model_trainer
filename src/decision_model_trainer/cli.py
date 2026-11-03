@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 import typer
 
+from .config import TrainingConfig
 from .training import load_yaml, train_from_config
 
 app = typer.Typer(help="Train and use Unsloth decision models.")
@@ -22,7 +23,7 @@ def train(
         raise typer.BadParameter(str(exc)) from exc
 
 
-def _load_training_config(path: Path) -> dict[str, Any]:
+def _load_training_config(path: Path) -> TrainingConfig:
     try:
         return load_yaml(path)
     except ValueError as exc:

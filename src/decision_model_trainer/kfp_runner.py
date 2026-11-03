@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 from typing import Any
 
-from .training import train_from_config
+from .training import resolve_config, train_from_config
 
 
 def load_json_config(value: str) -> dict[str, Any]:
@@ -15,6 +16,13 @@ def load_json_config(value: str) -> dict[str, Any]:
     if not isinstance(config, dict):
         raise TypeError("The JSON configuration root must be an object.")
     return config
+
+
+def write_resolved_config(config: dict[str, Any], output_path: str) -> None:
+    resolved = resolve_config(config)
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(resolved.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
 def main() -> None:
@@ -32,6 +40,10 @@ def main() -> None:
         "merged_model_path",
         help="KFP-provided path for the merged model artifact.",
     )
+    parser.add_argument(
+        "resolved_config_path",
+        help="KFP-provided path for the resolved configuration artifact.",
+    )
     args = parser.parse_args()
     try:
         config = load_json_config(args.config_json)
@@ -39,7 +51,12 @@ def main() -> None:
         parser.error(str(exc))
     config["output"] = args.model_path
     config["merged_output"] = args.merged_model_path
-    train_from_config(config, progress=print)
+    try:
+        write_resolved_config(config, args.resolved_config_path)
+        resolved_config = resolve_config(config)
+    except ValueError as exc:
+        parser.error(str(exc))
+    train_from_config(resolved_config, progress=print)
 
 
 if __name__ == "__main__":

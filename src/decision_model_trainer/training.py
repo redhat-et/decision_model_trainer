@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from decision_model_trainer.config import ModelConfig, TrainingArgs, TrainingConfig
 from decision_model_trainer.datasets import DATASET_ADAPTERS
 
 Progress = Callable[[str], None]
@@ -17,7 +18,7 @@ class TrainingResult:
     total_items: int
 
 
-def load_yaml(path: Path) -> dict[str, Any]:
+def load_yaml(path: Path) -> TrainingConfig:
     try:
         import yaml
     except ImportError as exc:
@@ -28,11 +29,38 @@ def load_yaml(path: Path) -> dict[str, Any]:
         config = yaml.safe_load(file) or {}
     if not isinstance(config, dict):
         raise TypeError("The YAML root must be a mapping.")
-    return config
+    return TrainingConfig.model_validate(config)
 
 
-def resolve_device(config: dict[str, Any]) -> str:
-    requested = config.get("device", "auto")
+def resolve_config(config: TrainingConfig | dict[str, Any]) -> TrainingConfig:
+    return config if isinstance(config, TrainingConfig) else TrainingConfig.model_validate(config)
+
+
+def _resolve_helper_config(config: TrainingConfig | dict[str, Any]) -> TrainingConfig:
+    """Keep standalone helpers compatible with their intentionally partial inputs."""
+    if isinstance(config, TrainingConfig):
+        return config
+    return TrainingConfig.model_construct(
+        model=ModelConfig.model_validate(config.get("model", {})),
+        dataset=config.get("dataset"),
+        dataset_name=config.get("dataset_name"),
+        dataset_config=config.get("dataset_config"),
+        dataset_split=config.get("dataset_split", "train"),
+        test_split=config.get("test_split"),
+        output=Path(config.get("output", "outputs")),
+        merged_output=config.get("merged_output"),
+        device=config.get("device", "auto"),
+        seed=config.get("seed", 3407),
+        holdout_fraction=config.get("holdout_fraction", 0.2),
+        merged_save_method=config.get("merged_save_method", "merged_16bit"),
+        resume_from_checkpoint=config.get("resume_from_checkpoint"),
+        training=TrainingArgs.model_validate(config.get("training", {})),
+    )
+
+
+def resolve_device(config: TrainingConfig | dict[str, Any]) -> str:
+    config = _resolve_helper_config(config)
+    requested = config.device
     if requested != "auto":
         return requested
     try:
@@ -49,15 +77,16 @@ def resolve_device(config: dict[str, Any]) -> str:
     return "cpu"
 
 
-def load_dataset(config: dict[str, Any], split: str | None = None):
+def load_dataset(config: TrainingConfig | dict[str, Any], split: str | None = None):
     from datasets import load_dataset
 
-    dataset_ref = config.get("dataset") or config.get("dataset_name")
-    split = config.get("dataset_split", "train") if split is None else split
+    config = _resolve_helper_config(config)
+    dataset_ref = config.dataset or config.dataset_name
+    split = config.dataset_split if split is None else split
 
-    if config.get("dataset") and config.get("dataset_name"):
+    if config.dataset and config.dataset_name:
         raise ValueError("Set only one of `dataset` or `dataset_name`.")
-    dataset_config = config.get("dataset_config")
+    dataset_config = config.dataset_config
     if not dataset_ref:
         raise ValueError("Config must include `dataset` or `dataset_name`.")
 
@@ -98,43 +127,27 @@ def report_accuracy(
     return accuracies
 
 
-def load_model(config: dict[str, Any]):
+def load_model(config: TrainingConfig | dict[str, Any]):
     try:
         from unsloth import FastDecisionModel
     except ImportError as exc:
         raise ValueError(
             "Unsloth is not installed. Follow the NVIDIA installation instructions in README.md."
         ) from exc
-    model_config = config.get("model", {})
+    model_config = _resolve_helper_config(config).model
     model, tokenizer = FastDecisionModel.from_pretrained(
-        model_name=model_config.get("name", "unsloth/Qwen3.5-4B"),
-        max_seq_length=model_config.get("max_seq_length", 2048),
-        load_in_4bit=model_config.get("load_in_4bit", False),
+        model_name=model_config.name,
+        max_seq_length=model_config.max_seq_length,
+        load_in_4bit=model_config.load_in_4bit,
     )
     return FastDecisionModel, model, tokenizer
 
 
-def build_training_args(config: dict[str, Any], output_path: Path):
+def build_training_args(config: TrainingConfig | dict[str, Any], output_path: Path):
     from transformers import TrainingArguments
 
-    values = {
-        "per_device_train_batch_size": 8,
-        "gradient_accumulation_steps": 4,
-        "warmup_steps": 10,
-        "max_steps": 60,
-        "learning_rate": 2e-4,
-        "lr_scheduler_type": "cosine",
-        "weight_decay": 0.01,
-        "eval_strategy": "epoch",
-        "logging_steps": 10,
-        "disable_tqdm": False,
-        "report_to": "none",
-        "seed": config.get("seed", 3407),
-        "output_dir": str(output_path),
-        "save_strategy": "epoch",
-    }
-    values.update(config.get("training", {}))
-    values["output_dir"] = str(output_path)
+    config = _resolve_helper_config(config)
+    values = config.training_values(output_path)
     try:
         from unsloth import is_bfloat16_supported
 
@@ -146,17 +159,23 @@ def build_training_args(config: dict[str, Any], output_path: Path):
     return TrainingArguments(**values)
 
 
-def save_model(model, tokenizer, output_path: Path, config: dict[str, Any]) -> None:
+def save_model(
+    model, tokenizer, output_path: Path, config: TrainingConfig | dict[str, Any]
+) -> None:
+    config = _resolve_helper_config(config)
     if hasattr(model, "save_pretrained"):
         model.save_pretrained(output_path)
     else:
-        model.save_pretrained_merged(output_path, tokenizer, save_method=config.get("merged_save_method", "merged_16bit"))
+        model.save_pretrained_merged(
+            output_path, tokenizer, save_method=config.merged_save_method
+        )
 
 
 def train_from_config(
-    config: dict[str, Any], progress: Progress | None = None
+    config: TrainingConfig | dict[str, Any], progress: Progress | None = None
 ) -> TrainingResult:
     """Run dataset preparation, fine-tuning, calibration, and model saving."""
+    config = resolve_config(config)
     device = resolve_device(config)
     if progress:
         progress(f"Using device: {device}")
@@ -166,11 +185,11 @@ def train_from_config(
     items, report = FastDecisionModel.build_dataset(dataset, tokenizer, model)
     train_items, eval_items = FastDecisionModel.split_holdout(
         items,
-        seed=config.get("seed", 3407),
-        fraction=config.get("holdout_fraction", 0.2),
+        seed=config.seed,
+        fraction=config.holdout_fraction,
     )
     test_items = None
-    test_split = config.get("test_split")
+    test_split = config.test_split
     if test_split:
         test_dataset = load_dataset(config, split=test_split)
         test_items, test_report = FastDecisionModel.build_dataset(
@@ -192,8 +211,8 @@ def train_from_config(
         )
         progress(f"Skipped {report['skipped']} of {report['total']} decisions")
 
-    model_config = config.get("model", {})
-    output_path = Path(config.get("output", "outputs"))
+    model_config = config.model
+    output_path = config.output
     output_path.mkdir(parents=True, exist_ok=True)
     from unsloth import DecisionTrainer
 
@@ -203,13 +222,11 @@ def train_from_config(
 
     model = FastDecisionModel.get_peft_model(
         model,
-        r=model_config.get("lora_r", 16),
-        lora_alpha=model_config.get("lora_alpha", 16),
-        lora_dropout=model_config.get("lora_dropout", 0),
-        use_gradient_checkpointing=model_config.get(
-            "gradient_checkpointing", "unsloth"
-        ),
-        random_state=config.get("seed", 3407),
+        r=model_config.lora_r,
+        lora_alpha=model_config.lora_alpha,
+        lora_dropout=model_config.lora_dropout,
+        use_gradient_checkpointing=model_config.gradient_checkpointing,
+        random_state=config.seed,
     )
 
     trainer = DecisionTrainer(
@@ -219,7 +236,7 @@ def train_from_config(
         eval_dataset=eval_items,
         args=build_training_args(config, output_path),
     )
-    trainer.train(resume_from_checkpoint=config.get("resume_from_checkpoint"))
+    trainer.train(resume_from_checkpoint=config.resume_from_checkpoint)
     report_accuracy(
         FastDecisionModel, model, tokenizer, datasets, "after_lora", progress
     )
@@ -230,14 +247,14 @@ def train_from_config(
         FastDecisionModel, model, tokenizer, datasets, "after_calibration", progress
     )
     save_model(model, tokenizer, output_path, config)
-    merged_output = config.get("merged_output")
+    merged_output = config.merged_output
     if merged_output:
         merged_output_path = Path(merged_output)
         merged_output_path.mkdir(parents=True, exist_ok=True)
         model.save_pretrained_merged(
             merged_output_path,
             tokenizer,
-            save_method=config.get("merged_save_method", "merged_16bit"),
+            save_method=config.merged_save_method,
         )
         if progress:
             progress(f"Saved merged model to {merged_output_path}")
