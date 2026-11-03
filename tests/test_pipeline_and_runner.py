@@ -76,3 +76,23 @@ def test_write_resolved_config_writes_defaults_and_kfp_paths(tmp_path):
     assert resolved["training"]["max_steps"] == 60
     assert resolved["output"] == "/tmp/model"
     assert resolved["merged_output"] == "/tmp/merged-model"
+
+
+def test_train_component_declares_metrics_output():
+    outputs = pipeline.train_component.component_spec.outputs
+
+    assert outputs["metrics"].type == "system.Metrics@0.0.1"
+
+
+def test_write_metrics_writes_numeric_metrics(tmp_path):
+    output = tmp_path / "nested" / "metrics.json"
+
+    kfp_runner.write_metrics(
+        {"after_calibration_test_accuracy": 0.91, "training_total_seconds": 12.5},
+        str(output),
+    )
+
+    assert json.loads(output.read_text(encoding="utf-8")) == {
+        "after_calibration_test_accuracy": 0.91,
+        "training_total_seconds": 12.5,
+    }

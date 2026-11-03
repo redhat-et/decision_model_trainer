@@ -25,6 +25,12 @@ def write_resolved_config(config: dict[str, Any], output_path: str) -> None:
     path.write_text(resolved.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
+def write_metrics(metrics: dict[str, float], output_path: str) -> None:
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(metrics, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run decision-model training in a KFP container."
@@ -44,6 +50,10 @@ def main() -> None:
         "resolved_config_path",
         help="KFP-provided path for the resolved configuration artifact.",
     )
+    parser.add_argument(
+        "metrics_path",
+        help="KFP-provided path for the metrics artifact.",
+    )
     args = parser.parse_args()
     try:
         config = load_json_config(args.config_json)
@@ -56,7 +66,8 @@ def main() -> None:
         resolved_config = resolve_config(config)
     except ValueError as exc:
         parser.error(str(exc))
-    train_from_config(resolved_config, progress=print)
+    result = train_from_config(resolved_config, progress=print)
+    write_metrics(result.metrics, args.metrics_path)
 
 
 if __name__ == "__main__":
