@@ -15,11 +15,18 @@ def train_component(
     config_json: str,
     model: dsl.Output[dsl.Model],
     merged_model: dsl.Output[dsl.Model],
+    resolved_config: dsl.Output[dsl.Artifact],
 ):
     return dsl.ContainerSpec(
         image=DEFAULT_IMAGE,
         command=["python", "-m", "decision_model_trainer.kfp_runner"],
-        args=["--config-json", config_json, model.path, merged_model.path],
+        args=[
+            "--config-json",
+            config_json,
+            model.path,
+            merged_model.path,
+            resolved_config.path,
+        ],
     )
 
 

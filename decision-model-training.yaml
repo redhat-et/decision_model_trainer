@@ -19,6 +19,10 @@ components:
           artifactType:
             schemaTitle: system.Model
             schemaVersion: 0.0.1
+        resolved_config:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
 deploymentSpec:
   executors:
     exec-train-component:
@@ -28,6 +32,7 @@ deploymentSpec:
         - '{{$.inputs.parameters[''config_json'']}}'
         - '{{$.outputs.artifacts[''model''].path}}'
         - '{{$.outputs.artifacts[''merged_model''].path}}'
+        - '{{$.outputs.artifacts[''resolved_config''].path}}'
         command:
         - python
         - -m
