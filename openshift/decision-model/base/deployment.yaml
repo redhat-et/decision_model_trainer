@@ -56,16 +56,12 @@ spec:
             --max-model-len 2048 \
             --async-scheduling \
             --dtype auto \
-            --logprobs-mode raw_logprobs \
             --trust-remote-code \
             --tensor-parallel-size 1 \
             --gpu-memory-utilization 0.9 \
             --enable-prefix-caching \
             --enable-chunked-prefill \
-            --kv-cache-dtype fp8 \
-            --default-chat-template-kwargs '{"enable_thinking": false}' \
-            --reasoning-parser qwen3 \
-            --tool-call-parser qwen3_coder
+            --kv-cache-dtype fp8
         command:
         - /bin/sh
         - -c
