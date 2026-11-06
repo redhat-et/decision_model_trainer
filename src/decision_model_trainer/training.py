@@ -1,3 +1,4 @@
+import random
 from collections.abc import Callable
 from dataclasses import dataclass
 from numbers import Real
@@ -5,7 +6,12 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from decision_model_trainer.config import ModelConfig, TrainingArgs, TrainingConfig
+from decision_model_trainer.config import (
+    DatasetConfig,
+    ModelConfig,
+    TrainingArgs,
+    TrainingConfig,
+)
 from decision_model_trainer.datasets import DATASET_ADAPTERS
 
 Progress = Callable[[str], None]
@@ -45,16 +51,11 @@ def _resolve_helper_config(config: TrainingConfig | dict[str, Any]) -> TrainingC
         return config
     return TrainingConfig.model_construct(
         model=ModelConfig.model_validate(config.get("model", {})),
-        dataset=config.get("dataset"),
-        dataset_name=config.get("dataset_name"),
-        dataset_config=config.get("dataset_config"),
-        dataset_split=config.get("dataset_split", "train"),
-        test_split=config.get("test_split"),
+        datasets=[DatasetConfig.model_validate(dataset) for dataset in config.get("datasets", [])],
         output=Path(config.get("output", "outputs")),
         merged_output=config.get("merged_output"),
         device=config.get("device", "auto"),
         seed=config.get("seed", 3407),
-        holdout_fraction=config.get("holdout_fraction", 0.2),
         merged_save_method=config.get("merged_save_method", "merged_16bit"),
         resume_from_checkpoint=config.get("resume_from_checkpoint"),
         training=TrainingArgs.model_validate(config.get("training", {})),
@@ -80,16 +81,22 @@ def resolve_device(config: TrainingConfig | dict[str, Any]) -> str:
     return "cpu"
 
 
-def load_dataset(config: TrainingConfig | dict[str, Any], split: str | None = None):
+def load_dataset(
+    config: TrainingConfig | DatasetConfig | dict[str, Any], split: str | None = None
+):
     from datasets import load_dataset
 
-    config = _resolve_helper_config(config)
-    dataset_ref = config.dataset or config.dataset_name
-    split = config.dataset_split if split is None else split
+    if isinstance(config, TrainingConfig):
+        if len(config.datasets) != 1:
+            raise ValueError("load_dataset requires a single dataset configuration.")
+        dataset_config = config.datasets[0]
+    elif isinstance(config, DatasetConfig):
+        dataset_config = config
+    else:
+        dataset_config = DatasetConfig.model_validate(config)
+    dataset_ref = dataset_config.dataset or dataset_config.dataset_name
+    split = dataset_config.train_split if split is None else split
 
-    if config.dataset and config.dataset_name:
-        raise ValueError("Set only one of `dataset` or `dataset_name`.")
-    dataset_config = config.dataset_config
     if not dataset_ref:
         raise ValueError("Config must include `dataset` or `dataset_name`.")
 
@@ -97,8 +104,8 @@ def load_dataset(config: TrainingConfig | dict[str, Any], split: str | None = No
     if dataset_ref in DATASET_ADAPTERS:
         dataset_adapter = DATASET_ADAPTERS[dataset_ref]
         adapter_kwargs = {"split": split}
-        if dataset_config is not None:
-            adapter_kwargs["name"] = dataset_config
+        if dataset_config.name is not None:
+            adapter_kwargs["name"] = dataset_config.name
         return dataset_adapter(**adapter_kwargs).dataset
 
     dataset_path = Path(dataset_ref)
@@ -106,8 +113,8 @@ def load_dataset(config: TrainingConfig | dict[str, Any], split: str | None = No
         return load_dataset(path=str(dataset_path), split=split)
 
     load_kwargs: dict[str, Any] = {"path": str(dataset_ref), "split": split}
-    if dataset_config is not None:
-        load_kwargs["name"] = dataset_config
+    if dataset_config.name is not None:
+        load_kwargs["name"] = dataset_config.name
     return load_dataset(**load_kwargs)
 
 
@@ -134,6 +141,52 @@ def report_accuracy(
                 f"ece: {numeric_metrics['ece']:.4f}"
             )
     return reported
+
+
+def _split_items(FastDecisionModel, items, dataset_config: DatasetConfig, seed: int):
+    """Create missing eval/test splits while preserving explicitly named splits."""
+    missing_eval = dataset_config.eval_split is None
+    missing_test = dataset_config.test_split is None and dataset_config.test_fraction > 0
+    eval_items = None
+    test_items = None
+    missing_fraction = (
+        (dataset_config.eval_fraction if missing_eval else 0)
+        + (dataset_config.test_fraction if missing_test else 0)
+    )
+    if missing_fraction:
+        train_items, held_out = FastDecisionModel.split_holdout(
+            items, seed=seed, fraction=missing_fraction
+        )
+        if missing_eval and missing_test:
+            eval_ratio = dataset_config.eval_fraction / missing_fraction
+            eval_items, test_items = FastDecisionModel.split_holdout(
+                held_out, seed=seed, fraction=1 - eval_ratio
+            )
+        elif missing_eval:
+            eval_items = held_out
+        else:
+            test_items = held_out
+    else:
+        train_items = items
+    return train_items, eval_items, test_items
+
+
+def _mix_items(item_sets: list[list], weights: list[float | None], seed: int) -> list:
+    if len(item_sets) <= 1:
+        return item_sets[0] if item_sets else []
+    active = [(items, weight) for items, weight in zip(item_sets, weights) if items]
+    if not active:
+        return []
+    values = [items for items, _ in active]
+    probabilities = [weight if weight is not None else 1.0 for _, weight in active]
+    rng = random.Random(seed)
+    positions = [0] * len(values)
+    mixed = []
+    for _ in range(sum(len(items) for items in values)):
+        index = rng.choices(range(len(values)), weights=probabilities, k=1)[0]
+        mixed.append(values[index][positions[index] % len(values[index])])
+        positions[index] += 1
+    return mixed
 
 
 def load_model(config: TrainingConfig | dict[str, Any]):
@@ -191,29 +244,48 @@ def train_from_config(
         progress(f"Using device: {device}")
 
     FastDecisionModel, model, tokenizer = load_model(config)
-    dataset = load_dataset(config)
-    items, report = FastDecisionModel.build_dataset(dataset, tokenizer, model)
-    train_items, eval_items = FastDecisionModel.split_holdout(
-        items,
-        seed=config.seed,
-        fraction=config.holdout_fraction,
-    )
-    test_items = None
-    test_split = config.test_split
-    if test_split:
-        test_dataset = load_dataset(config, split=test_split)
-        test_items, test_report = FastDecisionModel.build_dataset(
-            test_dataset, tokenizer, model
+    train_sets = []
+    eval_sets = []
+    test_sets = []
+    train_reports = []
+    for index, dataset_config in enumerate(config.datasets):
+        train_dataset = load_dataset(dataset_config, split=dataset_config.train_split)
+        items, report = FastDecisionModel.build_dataset(train_dataset, tokenizer, model)
+        train_items_for_source, eval_items_for_source, test_items_for_source = _split_items(
+            FastDecisionModel, items, dataset_config, config.seed + index
         )
-        if progress:
-            progress(
-                f"Prepared {len(test_items)} test items "
-                f"(skipped {test_report['skipped']} of {test_report['total']})"
+        if dataset_config.eval_split:
+            eval_dataset = load_dataset(dataset_config, split=dataset_config.eval_split)
+            eval_items_for_source, eval_report = FastDecisionModel.build_dataset(
+                eval_dataset, tokenizer, model
             )
+            report["skipped"] += eval_report["skipped"]
+            report["total"] += eval_report["total"]
+        if dataset_config.test_split:
+            test_dataset = load_dataset(dataset_config, split=dataset_config.test_split)
+            test_items_for_source, test_report = FastDecisionModel.build_dataset(
+                test_dataset, tokenizer, model
+            )
+            report["skipped"] += test_report["skipped"]
+            report["total"] += test_report["total"]
+        train_sets.append(train_items_for_source)
+        if eval_items_for_source is not None:
+            eval_sets.append(eval_items_for_source)
+        if test_items_for_source is not None:
+            test_sets.append(test_items_for_source)
+        train_reports.append(report)
 
+    weights = [dataset.weight for dataset in config.datasets]
+    train_items = _mix_items(train_sets, weights, config.seed)
+    eval_items = [item for items in eval_sets for item in items]
+    test_items = [item for items in test_sets for item in items] or None
     datasets = {"train": train_items, "eval": eval_items}
     if test_items is not None:
         datasets["test"] = test_items
+    report = {
+        "skipped": sum(item["skipped"] for item in train_reports),
+        "total": sum(item["total"] for item in train_reports),
+    }
 
     if progress:
         progress(

@@ -8,24 +8,69 @@ dataset, model, and output settings for your run.
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dataset` | string | none | Local dataset path, or a dataset identifier if it is not a local path. |
-| `dataset_name` | string | none | Hugging Face dataset identifier. Set either `dataset` or `dataset_name`, not both. |
-| `dataset_config` | string | none | Hugging Face dataset configuration passed as `name`. |
-| `dataset_split` | string | `train` | Dataset split to load. |
-| `test_split` | string | none | Optional named split from the same dataset source to use for test accuracy. |
+| `datasets` | list | required | Dataset sources to mix for training. Each entry sets either `dataset` or `dataset_name`, not both. |
 | `output` | path | `outputs` | Directory for the adapter/LoRA model. |
 | `merged_output` | path | none | Optional directory for the merged model. KFP replaces this with its managed artifact directory. |
 | `merged_save_method` | string | `merged_16bit` | Unsloth merge format, used when `merged_output` is set. |
 | `device` | string | `auto` | `cuda`, `mps`, `cpu`, or `auto`. Auto selects CUDA, then Apple MPS, then CPU. |
 | `seed` | integer | `3407` | Random seed used for model setup and the holdout split. |
-| `holdout_fraction` | number | `0.2` | Fraction of prepared items reserved for evaluation. |
 | `resume_from_checkpoint` | string or null | none | Checkpoint passed to the trainer for resuming. |
 
-`dataset` may refer to a local JSON, JSONL, or Parquet file/dataset directory.
-If the path does not exist locally, it is passed to Hugging Face Datasets as
-the dataset name. `dataset` and `dataset_name` are mutually exclusive. When
-`test_split` is set, that split is loaded from the same local path or Hub
-dataset. Without it, only train and eval accuracy are reported.
+## Dataset Options
+
+`datasets` is a non-empty list. Each entry describes one source dataset and
+must set exactly one of `dataset` or `dataset_name`.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `dataset` | string | none | Local dataset path, or a dataset identifier when it is not a local path. |
+| `dataset_name` | string | none | Hugging Face dataset identifier. |
+| `name` | string or null | none | Hugging Face dataset subset name. |
+| `train_split` | string | `train` | Named split used for training and, when needed, fractional holdouts. |
+| `eval_split` | string or null | none | Named evaluation split. If omitted, `eval_fraction` is taken from `train_split`. |
+| `test_split` | string or null | none | Named test split. If omitted, `test_fraction` is taken from `train_split`. |
+| `eval_fraction` | number | `0.2` | Fraction of the training split reserved for evaluation when `eval_split` is not set. |
+| `test_fraction` | number | `0.0` | Fraction of the training split reserved for testing when `test_split` is not set. |
+| `weight` | positive number or null | none | Relative share of this source in the training mix. If all weights are omitted, sources are mixed equally. |
+
+Fractions must be non-negative and their sum must be less than `1`. Named
+evaluation and test splits are loaded independently and are not included in
+fractional holdout calculations. Dataset adapters are applied to every named
+or fractional split when an adapter is registered for the dataset source.
+
+### Dataset Examples
+
+Use named splits when the source already provides evaluation and test data:
+
+```yaml
+datasets:
+  - dataset_name: org/support-decisions
+    name: default
+    train_split: train
+    eval_split: validation
+    test_split: test
+```
+
+Use fractions to split a source's training data when named splits are not
+available:
+
+```yaml
+datasets:
+  - dataset: data/first.jsonl
+    eval_fraction: 0.1
+    test_fraction: 0.1
+```
+
+Combine sources with a weighted training mix. The weights are relative; they
+do not need to add up to `1`:
+
+```yaml
+datasets:
+  - dataset_name: org/primary-decisions
+    weight: 3
+  - dataset_name: org/supplemental-decisions
+    weight: 1
+```
 
 ## Model Options
 

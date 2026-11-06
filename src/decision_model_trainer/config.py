@@ -33,30 +33,51 @@ class TrainingArgs(BaseModel):
     save_strategy: str = "epoch"
 
 
+class DatasetConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dataset: str | None = None
+    dataset_name: str | None = None
+    name: str | None = None
+    train_split: str = "train"
+    eval_split: str | None = None
+    test_split: str | None = None
+    eval_fraction: float = 0.2
+    test_fraction: float = 0.0
+    weight: float | None = None
+
+    @model_validator(mode="after")
+    def validate_dataset_reference(self) -> DatasetConfig:
+        if bool(self.dataset) == bool(self.dataset_name):
+            raise ValueError("Set exactly one of `dataset` or `dataset_name`.")
+        if self.eval_fraction < 0 or self.test_fraction < 0:
+            raise ValueError("Dataset split fractions cannot be negative.")
+        if self.eval_fraction + self.test_fraction >= 1:
+            raise ValueError("Dataset split fractions must sum to less than 1.")
+        if self.weight is not None and self.weight <= 0:
+            raise ValueError("Dataset weight must be greater than zero.")
+        return self
+
+
 class TrainingConfig(BaseModel):
     """Validated training configuration with all application defaults resolved."""
 
     model_config = ConfigDict(extra="forbid")
 
     model: ModelConfig
-    dataset: str | None = None
-    dataset_name: str | None = None
-    dataset_config: str
-    dataset_split: str
-    test_split: str | None = None
+    datasets: list[DatasetConfig]
     output: Path = Path("outputs")
     merged_output: Path | None = None
     device: str = "auto"
     seed: int = 3407
-    holdout_fraction: float = 0.2
     merged_save_method: str = "merged_16bit"
     resume_from_checkpoint: str | None = None
     training: TrainingArgs = Field(default_factory=TrainingArgs)
 
     @model_validator(mode="after")
-    def validate_dataset_reference(self) -> TrainingConfig:
-        if bool(self.dataset) == bool(self.dataset_name):
-            raise ValueError("Set exactly one of `dataset` or `dataset_name`.")
+    def validate_datasets(self) -> TrainingConfig:
+        if not self.datasets:
+            raise ValueError("At least one dataset is required.")
         return self
 
     def training_values(self, output_path: Path) -> dict[str, Any]:

@@ -7,18 +7,18 @@ model:
   lora_dropout: 0.0
   gradient_checkpointing: unsloth
 
-# Use either dataset for a local file or dataset_name for a Hub dataset.
-# dataset: data/train.jsonl
-dataset_name: LocalLLaMA/typed-decisions
-dataset_config: invoice_processing
-dataset_split: train
-# Optional: evaluate a named split from the same dataset source.
-# test_split: test
+datasets:
+  - dataset_name: LocalLLaMA/typed-decisions
+    name: all
+    train_split: train
+    # Use eval_split/test_split for named splits, or fractions to split the train data.
+    eval_fraction: 0.2
+    test_split: test
+    # weight: 1.0
 output: outputs/qwen-decision
 merged_output: outputs/qwen-decision-merged
 device: auto
 seed: 3407
-holdout_fraction: 0.2
 
 training:
   per_device_train_batch_size: 8

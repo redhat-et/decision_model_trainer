@@ -114,7 +114,7 @@ def test_load_dataset_passes_configured_split_to_adapter(monkeypatch):
     monkeypatch.setitem(training.DATASET_ADAPTERS, "custom/adapter", Adapter)
 
     result = training.load_dataset(
-        {"dataset": "custom/adapter", "dataset_split": "validation"}
+        {"dataset": "custom/adapter", "train_split": "validation"}
     )
 
     assert result == "dataset"

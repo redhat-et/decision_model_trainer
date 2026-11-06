@@ -10,13 +10,13 @@ from decision_model_trainer.config import TrainingConfig
 def test_load_yaml_reads_mapping(tmp_path):
     config_path = tmp_path / "config.yaml"
     config_path.write_text(
-        "model: {}\ndataset: example\ndataset_config: default\ndataset_split: train\nseed: 42\n",
+        "model: {}\ndatasets:\n  - dataset_name: example\n    name: default\nseed: 42\n",
         encoding="utf-8",
     )
 
     config = training.load_yaml(config_path)
 
-    assert config.dataset == "example"
+    assert config.datasets[0].dataset_name == "example"
     assert config.seed == 42
 
 
@@ -37,9 +37,7 @@ def test_config_resolves_defaults_and_allows_training_arguments():
     config = TrainingConfig.model_validate(
         {
             "model": {},
-            "dataset": "example",
-            "dataset_config": "default",
-            "dataset_split": "train",
+            "datasets": [{"dataset_name": "example", "name": "default"}],
             "training": {"num_train_epochs": 2, "optim": "adamw_torch"},
         }
     )
@@ -53,15 +51,14 @@ def test_config_resolves_defaults_and_allows_training_arguments():
 
 
 def test_config_requires_training_inputs():
-    with pytest.raises(ValueError, match="dataset_config"):
-        TrainingConfig.model_validate({"model": {}, "dataset": "example"})
+    with pytest.raises(ValueError, match="datasets"):
+        TrainingConfig.model_validate({"model": {}, "datasets": []})
 
     with pytest.raises(ValueError, match="exactly one"):
         TrainingConfig.model_validate(
             {
                 "model": {},
-                "dataset_config": "default",
-                "dataset_split": "train",
+                "datasets": [{"dataset": "one", "dataset_name": "two"}],
             }
         )
 
@@ -95,7 +92,7 @@ def test_load_dataset_uses_local_path(tmp_path, monkeypatch):
     monkeypatch.setitem(__import__("sys").modules, "datasets", DatasetModule)
 
     result = training.load_dataset(
-        {"dataset": str(dataset_path), "dataset_split": "test"}
+        {"dataset": str(dataset_path), "train_split": "test"}
     )
 
     assert result == {"path": str(dataset_path), "split": "test"}
@@ -113,7 +110,7 @@ def test_load_dataset_can_override_configured_split(monkeypatch):
     monkeypatch.setitem(__import__("sys").modules, "datasets", DatasetModule)
 
     result = training.load_dataset(
-        {"dataset": "org/data", "dataset_split": "train"}, split="test"
+        {"dataset": "org/data", "train_split": "train"}, split="test"
     )
 
     assert result == {"path": "org/data", "split": "test"}
@@ -162,7 +159,7 @@ def test_load_dataset_rejects_conflicting_references(monkeypatch):
 
     monkeypatch.setitem(__import__("sys").modules, "datasets", DatasetModule)
 
-    with pytest.raises(ValueError, match="only one"):
+    with pytest.raises(ValueError, match="exactly one"):
         training.load_dataset({"dataset": "one", "dataset_name": "two"})
 
 

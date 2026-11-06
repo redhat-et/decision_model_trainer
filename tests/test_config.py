@@ -9,9 +9,7 @@ from decision_model_trainer.config import TrainingConfig
 def valid_config() -> dict:
     return {
         "model": {},
-        "dataset_name": "org/dataset",
-        "dataset_config": "default",
-        "dataset_split": "train",
+        "datasets": [{"dataset_name": "org/dataset", "name": "default"}],
     }
 
 
@@ -21,15 +19,15 @@ def test_config_resolves_defaults():
     assert config.output == Path("outputs")
     assert config.device == "auto"
     assert config.seed == 3407
-    assert config.holdout_fraction == 0.2
+    assert config.datasets[0].eval_fraction == 0.2
     assert config.model.name == "unsloth/Qwen3.5-4B"
     assert config.model.max_seq_length == 2048
     assert config.training.max_steps == 60
     assert config.training.learning_rate == 2e-4
 
 
-def test_config_requires_model_dataset_config_and_split():
-    for field in ("model", "dataset_config", "dataset_split"):
+def test_config_requires_model_and_datasets():
+    for field in ("model", "datasets"):
         config = valid_config()
         config.pop(field)
 
@@ -39,13 +37,13 @@ def test_config_requires_model_dataset_config_and_split():
 
 def test_config_requires_exactly_one_dataset_reference():
     config = valid_config()
-    config.pop("dataset_name")
+    config["datasets"][0].pop("dataset_name")
 
     with pytest.raises(ValidationError, match="exactly one"):
         TrainingConfig.model_validate(config)
 
-    config["dataset"] = "local/data.jsonl"
-    config["dataset_name"] = "org/dataset"
+    config["datasets"][0]["dataset"] = "local/data.jsonl"
+    config["datasets"][0]["dataset_name"] = "org/dataset"
 
     with pytest.raises(ValidationError, match="exactly one"):
         TrainingConfig.model_validate(config)
@@ -73,3 +71,24 @@ def test_config_serializes_to_json():
 
     assert '"dataset_name":"org/dataset"' in serialized
     assert '"output":"outputs"' in serialized
+
+
+def test_config_supports_multiple_weighted_datasets_and_named_splits():
+    config = TrainingConfig.model_validate(
+        {
+            "model": {},
+            "datasets": [
+                {"dataset_name": "org/one", "name": "first", "weight": 2},
+                {
+                    "dataset": "local/data",
+                    "train_split": "training",
+                    "eval_split": "validation",
+                    "test_split": "testing",
+                },
+            ],
+        }
+    )
+
+    assert config.datasets[0].weight == 2
+    assert config.datasets[1].train_split == "training"
+    assert config.datasets[1].eval_split == "validation"

@@ -5,7 +5,7 @@ Decision Model Trainer is a Kubeflow Pipelines (KFP) component for Red Hat OpenS
 ## Features
 
 - Kubeflow Pipelines v2 decision model training pipeline for RHOAI, with GPU scheduling controls, disabled caching, and separate adapter and merged-model artifacts.
-- Accepts local datasets or Hugging Face datasets and configurable dataset splits.
+- Accepts multiple local or Hugging Face datasets, configurable splits, and weighted training mixes.
 - Supports typed `choice`, `noul`, and `score` questions with structured gold answers.
 - Provides reproducible holdout splitting, skipped-record reporting, evaluation, checkpointing, and decision-head calibration.
 - Supports configurable base models, sequence length, 4-bit loading, LoRA settings, gradient checkpointing, and standard Transformers training arguments.
@@ -266,7 +266,7 @@ podman push "$IMAGE"
 ## Known Issues & TODOs
 
 - [ ] Add MLflow support for logging training data
-- [ ] Add support for training on multiple datasets
+- [x] Add support for training on multiple datasets
 - [x] Convert config into Pydantic object
 - [x] Save metrics and configuration with the output models
 - [ ] Export format for encoder-only models limited to merged-only

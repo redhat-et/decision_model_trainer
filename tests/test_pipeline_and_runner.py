@@ -61,9 +61,7 @@ def test_load_json_config_requires_object():
 def test_write_resolved_config_writes_defaults_and_kfp_paths(tmp_path):
     config = {
         "model": {},
-        "dataset_name": "org/dataset",
-        "dataset_config": "default",
-        "dataset_split": "train",
+        "datasets": [{"dataset_name": "org/dataset", "name": "default"}],
         "output": "/tmp/model",
         "merged_output": "/tmp/merged-model",
     }
