@@ -9,7 +9,7 @@ from decision_model_trainer.config import TrainingConfig
 def valid_config() -> dict:
     return {
         "model": {},
-        "datasets": [{"dataset_name": "org/dataset", "name": "default"}],
+        "datasets": [{"dataset": "org/dataset", "name": "default"}],
     }
 
 
@@ -35,17 +35,11 @@ def test_config_requires_model_and_datasets():
             TrainingConfig.model_validate(config)
 
 
-def test_config_requires_exactly_one_dataset_reference():
+def test_config_requires_dataset_reference():
     config = valid_config()
-    config["datasets"][0].pop("dataset_name")
+    config["datasets"][0].pop("dataset")
 
-    with pytest.raises(ValidationError, match="exactly one"):
-        TrainingConfig.model_validate(config)
-
-    config["datasets"][0]["dataset"] = "local/data.jsonl"
-    config["datasets"][0]["dataset_name"] = "org/dataset"
-
-    with pytest.raises(ValidationError, match="exactly one"):
+    with pytest.raises(ValidationError, match="dataset"):
         TrainingConfig.model_validate(config)
 
 
@@ -69,7 +63,7 @@ def test_config_serializes_to_json():
 
     serialized = config.model_dump_json()
 
-    assert '"dataset_name":"org/dataset"' in serialized
+    assert '"dataset":"org/dataset"' in serialized
     assert '"output":"outputs"' in serialized
 
 
@@ -78,7 +72,7 @@ def test_config_supports_multiple_weighted_datasets_and_named_splits():
         {
             "model": {},
             "datasets": [
-                {"dataset_name": "org/one", "name": "first", "weight": 2},
+                {"dataset": "org/one", "name": "first", "weight": 2},
                 {
                     "dataset": "local/data",
                     "train_split": "training",

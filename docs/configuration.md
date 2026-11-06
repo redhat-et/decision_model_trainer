@@ -8,7 +8,7 @@ dataset, model, and output settings for your run.
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `datasets` | list | required | Dataset sources to mix for training. Each entry sets either `dataset` or `dataset_name`, not both. |
+| `datasets` | list | required | Dataset sources to mix for training. |
 | `output` | path | `outputs` | Directory for the adapter/LoRA model. |
 | `merged_output` | path | none | Optional directory for the merged model. KFP replaces this with its managed artifact directory. |
 | `merged_save_method` | string | `merged_16bit` | Unsloth merge format, used when `merged_output` is set. |
@@ -18,13 +18,11 @@ dataset, model, and output settings for your run.
 
 ## Dataset Options
 
-`datasets` is a non-empty list. Each entry describes one source dataset and
-must set exactly one of `dataset` or `dataset_name`.
+`datasets` is a non-empty list. Each entry describes one source dataset.
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dataset` | string | none | Local dataset path, or a dataset identifier when it is not a local path. |
-| `dataset_name` | string | none | Hugging Face dataset identifier. |
+| `dataset` | string | required | Local dataset directory, or a Hugging Face dataset identifier when it is not a local path. Local paths take precedence. |
 | `name` | string or null | none | Hugging Face dataset subset name. |
 | `train_split` | string | `train` | Named split used for training and, when needed, fractional holdouts. |
 | `eval_split` | string or null | none | Named evaluation split. If omitted, `eval_fraction` is taken from `train_split`. |
@@ -37,6 +35,8 @@ Fractions must be non-negative and their sum must be less than `1`. Named
 evaluation and test splits are loaded independently and are not included in
 fractional holdout calculations. Dataset adapters are applied to every named
 or fractional split when an adapter is registered for the dataset source.
+Local datasets must be provided as directories containing supported dataset
+files; individual local files are not supported.
 
 ### Dataset Examples
 
@@ -44,7 +44,7 @@ Use named splits when the source already provides evaluation and test data:
 
 ```yaml
 datasets:
-  - dataset_name: org/support-decisions
+  - dataset: org/support-decisions
     name: default
     train_split: train
     eval_split: validation
@@ -66,9 +66,9 @@ do not need to add up to `1`:
 
 ```yaml
 datasets:
-  - dataset_name: org/primary-decisions
+  - dataset: org/primary-decisions
     weight: 3
-  - dataset_name: org/supplemental-decisions
+  - dataset: org/supplemental-decisions
     weight: 1
 ```
 

@@ -20,5 +20,5 @@ class DecisionDatasetAdapter(ABC):
         logger.info(f"Data loaded: {self.dataset.shape}")
 
     @abstractmethod
-    def load_data(self, *, name: str | None = None, split: str | None = None) -> pd.DataFrame:
+    def load_data(self, *, name: str | None = None, split: str | None = None):
         """Load data into a pandas DataFrame."""

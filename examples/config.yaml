@@ -8,7 +8,7 @@ model:
   gradient_checkpointing: unsloth
 
 datasets:
-  - dataset_name: LocalLLaMA/typed-decisions
+  - dataset: LocalLLaMA/typed-decisions
     name: all
     train_split: train
     # Use eval_split/test_split for named splits, or fractions to split the train data.

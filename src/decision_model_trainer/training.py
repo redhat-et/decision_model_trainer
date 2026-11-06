@@ -94,11 +94,11 @@ def load_dataset(
         dataset_config = config
     else:
         dataset_config = DatasetConfig.model_validate(config)
-    dataset_ref = dataset_config.dataset or dataset_config.dataset_name
+    dataset_ref = dataset_config.dataset
     split = dataset_config.train_split if split is None else split
 
     if not dataset_ref:
-        raise ValueError("Config must include `dataset` or `dataset_name`.")
+        raise ValueError("Config must include `dataset`.")
 
     # Fetch from adapters (if present)
     if dataset_ref in DATASET_ADAPTERS:
@@ -107,10 +107,6 @@ def load_dataset(
         if dataset_config.name is not None:
             adapter_kwargs["name"] = dataset_config.name
         return dataset_adapter(**adapter_kwargs).dataset
-
-    dataset_path = Path(dataset_ref)
-    if dataset_path.exists():
-        return load_dataset(path=str(dataset_path), split=split)
 
     load_kwargs: dict[str, Any] = {"path": str(dataset_ref), "split": split}
     if dataset_config.name is not None:
